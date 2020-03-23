@@ -52,30 +52,32 @@ const DEFAULTUCS: usize = 257;
  */
 
 /* key, mask, output */
-const key: Vec<Key> = [
-    { SDLK_LEFT,      KMOD_ALT,  "\033[1;3D" },
-    { SDLK_RIGHT,     KMOD_ALT,  "\033[1;3C" },
+// const key: Vec<Key> = [
+//     { SDLK_LEFT,      KMOD_ALT,  "\033[1;3D" },
+//     { SDLK_RIGHT,     KMOD_ALT,  "\033[1;3C" },
 
-    { SDLK_BACKSPACE, 0, "\177" },
-    { SDLK_INSERT,    0, "\033[2~" },
-    { SDLK_DELETE,    0, "\033[3~" },
-    { SDLK_HOME,      0, "\033[1~" },
-    { SDLK_END,       0, "\033[4~" },
-    { SDLK_PAGEUP,    0, "\033[5~" },
-    { SDLK_PAGEDOWN,  0, "\033[6~" },
-    { SDLK_F1,        0, "\033OP"   },
-    { SDLK_F2,        0, "\033OQ"   },
-    { SDLK_F3,        0, "\033OR"   },
-    { SDLK_F4,        0, "\033OS"   },
-    { SDLK_F5,        0, "\033[15~" },
-    { SDLK_F6,        0, "\033[17~" },
-    { SDLK_F7,        0, "\033[18~" },
-    { SDLK_F8,        0, "\033[19~" },
-    { SDLK_F9,        0, "\033[20~" },
-    { SDLK_F10,       0, "\033[21~" },
-    { SDLK_F11,       0, "\033[23~" },
-    { SDLK_F12,       0, "\033[24~" },
-];
+//     { SDLK_BACKSPACE, 0, "\177" },
+//     { SDLK_INSERT,    0, "\033[2~" },
+//     { SDLK_DELETE,    0, "\033[3~" },
+//     { SDLK_HOME,      0, "\033[1~" },
+//     { SDLK_END,       0, "\033[4~" },
+//     { SDLK_PAGEUP,    0, "\033[5~" },
+//     { SDLK_PAGEDOWN,  0, "\033[6~" },
+//     { SDLK_F1,        0, "\033OP"   },
+//     { SDLK_F2,        0, "\033OQ"   },
+//     { SDLK_F3,        0, "\033OR"   },
+//     { SDLK_F4,        0, "\033OS"   },
+//     { SDLK_F5,        0, "\033[15~" },
+//     { SDLK_F6,        0, "\033[17~" },
+//     { SDLK_F7,        0, "\033[18~" },
+//     { SDLK_F8,        0, "\033[19~" },
+//     { SDLK_F9,        0, "\033[20~" },
+//     { SDLK_F10,       0, "\033[21~" },
+//     { SDLK_F11,       0, "\033[23~" },
+//     { SDLK_F12,       0, "\033[24~" },
+// ];
+
+
 
 enum GlyphAttribute {
     ATTR_NULL      = 0,
