@@ -183,15 +183,15 @@ struct STREscape {
 struct Term {
     row: isize,
     col: isize,
-    line: Vec<Glyph>,  // screen
-    alt: Vec<Glyph>,  // alternate screen
-    dirty: bool,
+    line: Vec<Vec<Glyph>>,  // screen
+    alt: Vec<Vec<Glyph>>,  // alternate screen
+    dirty: Vec<bool>,
     c: TCursor,
     top: isize,
     bot: isize,
     mode: isize,
     esc: isize,
-    tabs: bool,
+    tabs: Vec<bool>,
 }
 
 struct Window {
@@ -240,6 +240,138 @@ struct DC {
 }
 
 
+fn limit(x: isize, a: isize, b: iszie) -> isize {
+    if x < a {
+	a
+    }
+    else if x > b {
+	b
+    }
+    else {
+	x
+    }
+}
+
+
+
+tnew(int col, int row) {
+	/* set screen size */
+	term.row = row;
+	term.col = col;
+	term.line = xmalloc(term.row * sizeof(Line));
+	term.alt  = xmalloc(term.row * sizeof(Line));
+	term.dirty = xmalloc(term.row * sizeof(*term.dirty));
+	term.tabs = xmalloc(term.col * sizeof(*term.tabs));
+
+	for(row = 0; row < term.row; row++) {
+		term.line[row] = xmalloc(term.col * sizeof(Glyph));
+		term.alt [row] = xmalloc(term.col * sizeof(Glyph));
+		term.dirty[row] = 0;
+	}
+	memset(term.tabs, 0, term.col * sizeof(*term.tabs));
+	/* setup screen */
+	treset();
+
+void
+treset(void) {
+	uint i;
+
+	term.c = (TCursor){{
+		.mode = ATTR_NULL,
+		.fg = defaultfg,
+		.bg = defaultbg
+	}, .x = 0, .y = 0, .state = CURSOR_DEFAULT};
+
+	memset(term.tabs, 0, term.col * sizeof(*term.tabs));
+	for(i = tabspaces; i < term.col; i += tabspaces)
+		term.tabs[i] = 1;
+	term.top = 0;
+	term.bot = term.row - 1;
+	term.mode = MODE_WRAP;
+
+	tclearregion(0, 0, term.col-1, term.row-1);
+}
+
+
+
+impl Term {
+
+    fn reset(&self) {
+	let glyph = Glyph {
+	    mode: ATTR_NULL,
+	    fg: DEFAULTFG,
+	    bg: DEFAULTBG,
+	    c: Default::default(),
+	    state: Default::default(),
+	};
+	let cursor = TCursor {
+	    glyph,
+	    x: 0,
+	    y: 0,
+	    state: CURSOR_DEFAULT
+	};
+
+	for i in 1..(col/TABSPACES) {
+	    self.tabs[i*TABSPACES] = 1;
+	}
+
+	self.top = 0;
+	self.bot = self.row - 1;
+	self.mode = MODE_WRAP;
+
+	self.clear_region(0, 0, self.row-1, self.col - 1);
+
+    }
+
+    fn clear_region(&mut self, mut x1: isize, mut y1: isize, mut x2: isize, mut y2: isize) {
+	if x1 > x2 {
+	    (x1, x2) = (x2, x1);
+	}
+	if y1 > y2 {
+	    (y1, y2) = (y2, y1);
+	}
+
+	x1 = limit(x1, 0, self.col - 1);
+	x2 = limit(x2, 0, self.col - 1);
+	y1 = limit(y1, 0, self.row - 1);
+	y2 = limit(y2, 0, self.row - 1);
+
+	for y in y1..=y2 {
+	    self.dirty[y] = 1;
+	    for x in x1..=x2 {
+		// TODO: how to express two dimension cell index
+		self.line[y][x].state = 0;
+	    }
+	}
+    }
+
+
+
+    fn new() {
+	let row = 24;
+	let col = 80;
+
+	let lines: Vec<Vec<Glyph>> = Vec::with_capacity(row);
+	let alts: Vec<Vec<Glyph>> = Vec::with_capacity(row);
+	let dirtys: Vec<bool> = Vec::with_capacity(row);
+	let tabss: Vec<bool> = Vec::with_capacity(col);
+
+	Term {
+	    row,
+	    col,
+	    line: lines,
+	    alt: alts,
+	    dirty: dirtys,
+	    tabs: tabss,
+	    ..Default::default(),
+	}
+    }
+
+
+}
+
+
+
 
 
 
@@ -251,7 +383,7 @@ fn main() {
     println!("Hello, world!");
 
     let g_term = Term::new();
-
+    g_term.reset();
 
     tty_new();
     sdl_new();
