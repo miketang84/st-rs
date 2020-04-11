@@ -4,6 +4,10 @@ use nix::unistd::ForkResult;
 use std::os::unix::io::RawFd;
 use nix::sys::select::FdSet;
 
+use std::path::Path;
+use sdl::video::{SurfaceFlag, VideoFlag, Color};
+use sdl::event::{Event, Key};
+
 
 // ============================================
 
@@ -238,6 +242,7 @@ struct Key {
 //	const Arg arg;
 // } Shortcut;
 
+// Drawing Context
 struct DC {
     colors: Vec<sdl::Color>,
     font: sdl::ttf::Font,
@@ -440,14 +445,115 @@ fn tty_new() -> Result<RawFd, String> {
 	}
 
     }
-
-
-    println!("parent process exit.");
-
 }
 
 
+fn init_colormap() {
+    // TODO: copy 0~16 colormap defined in the head to dc.colors[]
 
+
+    let mut i = 16;
+    /* init colors [16-255] ; same colors as xterm */
+    for r in 0..6 {
+	for g in 0..6 {
+	    for b in 0..6 {
+		// XXX: colors should be pre-allocated
+		dc.colors[i] = sdl::Color::RGB (
+		    // color depth: 16bit?
+		    if r == 0 {0} else {0x3737 + 0x2828 * r},
+		    if g == 0 {0} else {0x3737 + 0x2828 * g},
+		    if b == 0 {0} else {0x3737 + 0x2828 * b},
+		);
+		i += 1;
+	    }
+	}
+    }
+
+    for r in 0..24 {
+	let b =  0x0808 + 0x0a0a * r;
+	dc.colors[i] = sdl::Color::RGB(b, b, b);
+	i += 1;
+    }
+}
+
+fn init_drawing_context() -> DC {
+    let path = Path::new("examples/lazy.ttf");
+    let font = sdl_ttf::open_font(&path, 28).unwrap();
+
+    let dc = DC::new();
+
+    dc
+}
+
+
+fn sdl_new() -> Window {
+
+    sdl::init(&[sdl::InitFlag::Video]);
+    sdl::wm::set_caption("Rust ST", "rust-sdl");
+
+    // SDL_EnableUNICODE(1);
+    // if(atexit(TTF_Quit)) {
+    //	fprintf(stderr,"Unable to register TTF_Quit atexit\n");
+    // }
+
+    // if(atexit(SDL_Quit)) {
+    //	fprintf(stderr,"Unable to register SDL_Quit atexit\n");
+    // }
+
+    // vi = SDL_GetVideoInfo();
+
+    let _ = sdl_ttf::init();
+
+    let mut dc = init_drawing_context();
+    init_colormap(&mut dc);
+
+    let screen = match sdl::video::set_video_mode(320, 240, 16,
+						  &[SurfaceFlag::HWSurface],
+						  &[VideoFlag::DoubleBuf]) {
+	Ok(screen) => screen,
+	Err(err) => panic!("failed to set video mode: {}", err)
+    };
+
+    // Window initialization, containing all screen related information
+    let win = Window::new();
+
+    win
+
+
+
+
+    // let _ = sdl_image::init(&[sdl_image::InitFlag::PNG]);
+    // let path = Path::new("examples/background.png");
+    // let image_surface = sdl_image::load(&path).unwrap();
+
+    // let color = Color::RGB(255, 255, 255);
+    // let text_surface = sdl_ttf::render_utf8_solid(&font, "Wonderful! 世界你好！".to_string(), &color).unwrap();
+
+    // let _ = screen.blit(&image_surface);
+    // let _ = screen.blit(&text_surface);
+
+    // screen.flip();
+
+    // 'main : loop {
+    //	'event : loop {
+    //	    match sdl::event::poll_event() {
+    //		Event::Quit => break 'main,
+    //		Event::None => break 'event,
+    //		Event::Key(k, _, _, _)
+    //		    if k == Key::Escape
+    //			=> break 'main,
+    //		_ => {}
+    //	    }
+    //	}
+    // }
+
+    // sdl_ttf::close_font(font);
+    // sdl_ttf::quit();
+    // sdl_image::quit();
+    // sdl::quit();
+
+
+}
 
 
 
