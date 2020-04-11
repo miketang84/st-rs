@@ -1,3 +1,10 @@
+use nix::pty;
+use nix::pty::OpenptyResult;
+use nix::unistd::ForkResult;
+use std::os::unix::io::RawFd;
+use nix::sys::select::FdSet;
+
+
 // ============================================
 
 /* appearance */
@@ -240,6 +247,7 @@ struct DC {
 }
 
 
+#[inline]
 fn limit(x: isize, a: isize, b: iszie) -> isize {
     if x < a {
 	a
@@ -251,48 +259,6 @@ fn limit(x: isize, a: isize, b: iszie) -> isize {
 	x
     }
 }
-
-
-
-tnew(int col, int row) {
-	/* set screen size */
-	term.row = row;
-	term.col = col;
-	term.line = xmalloc(term.row * sizeof(Line));
-	term.alt  = xmalloc(term.row * sizeof(Line));
-	term.dirty = xmalloc(term.row * sizeof(*term.dirty));
-	term.tabs = xmalloc(term.col * sizeof(*term.tabs));
-
-	for(row = 0; row < term.row; row++) {
-		term.line[row] = xmalloc(term.col * sizeof(Glyph));
-		term.alt [row] = xmalloc(term.col * sizeof(Glyph));
-		term.dirty[row] = 0;
-	}
-	memset(term.tabs, 0, term.col * sizeof(*term.tabs));
-	/* setup screen */
-	treset();
-
-void
-treset(void) {
-	uint i;
-
-	term.c = (TCursor){{
-		.mode = ATTR_NULL,
-		.fg = defaultfg,
-		.bg = defaultbg
-	}, .x = 0, .y = 0, .state = CURSOR_DEFAULT};
-
-	memset(term.tabs, 0, term.col * sizeof(*term.tabs));
-	for(i = tabspaces; i < term.col; i += tabspaces)
-		term.tabs[i] = 1;
-	term.top = 0;
-	term.bot = term.row - 1;
-	term.mode = MODE_WRAP;
-
-	tclearregion(0, 0, term.col-1, term.row-1);
-}
-
-
 
 impl Term {
 
@@ -371,6 +337,114 @@ impl Term {
 }
 
 
+// tty programming
+fn tty_new() -> Result<RawFd, String> {
+
+    let ws = pty::Winsize {
+	ws_row: 80,
+	ws_col: 24,
+	ws_xpixel: 0,
+	ws_ypixel: 0,
+    };
+
+    let opr: OpenptyResult = pty::openpty(Some(&ws), None).unwrap();
+    // XXX: we should do clone on RawFd, that will lead an undefined result
+    // let (master, slave0): (RawFd, RawFd) = (opr.master.clone(), opr.slave.clone());
+    // println!("{:?}", opr);
+
+    match unistd::fork() {
+	Ok(ForkResult::Parent { child, .. }) => {
+	    println!("Continuing execution in parent process, new child has pid: {}", child);
+	    let _ = unistd::close(opr.slave);
+	    // TODO: handle on child process exit with exception
+	    // signal(SIGCHLD, sigchld);
+	    println!("leave fork parent branch.");
+	    return Ok(opr.master);
+	}
+	Ok(ForkResult::Child) => {
+	    let _ = unistd::setsid();
+	    let _ = unistd::dup2(opr.slave, 0);
+	    let _ = unistd::dup2(opr.slave, 1);
+	    let _ = unistd::dup2(opr.slave, 2);
+	    unsafe {
+		libc::ioctl(opr.slave, libc::TIOCSCTTY);
+	    }
+	    let _ = unistd::close(opr.slave);
+	    let _ = unistd::close(opr.master);
+
+	    // TODO: set envs and signals
+	    // unsetenv("COLUMNS");
+	    // unsetenv("LINES");
+	    // unsetenv("TERMCAP");
+
+	    // if(pass) {
+	    //	setenv("LOGNAME", pass->pw_name, 1);
+	    //	setenv("USER", pass->pw_name, 1);
+	    //	setenv("SHELL", pass->pw_shell, 0);
+	    //	setenv("HOME", pass->pw_dir, 0);
+	    // }
+	    // signal(SIGCHLD, SIG_DFL);
+	    // signal(SIGHUP, SIG_DFL);
+	    // signal(SIGINT, SIG_DFL);
+	    // signal(SIGQUIT, SIG_DFL);
+	    // signal(SIGTERM, SIG_DFL);
+	    // signal(SIGALRM, SIG_DFL);
+
+	    // DEFAULT(envshell, shell);
+	    // setenv("TERM", termname, 1);
+
+	    let cstr = std::ffi::CString::new("/bin/sh").unwrap();
+	    let _ = unistd::execvp(&cstr, &[]);
+
+	    // TODO: normally, can not reach this
+	    // exit(EXIT_FAILURE);
+
+	}
+	Err(_) => {
+	    // TODO: Full error handling
+	    println!("Fork failed");
+	    return Err("Fork failed".to_string());
+	}
+    }
+
+    let mut set = FdSet::new();
+    set.clear();
+    set.insert(opr.master);
+
+    loop {
+	// let mut tv = nix::sys::time::TimeVal::from(libc::timeval {
+	//     tv_sec: 0,
+	//     tv_usec: 5
+	// });
+	let r = nix::sys::select::select(
+	    Some(opr.master + 1),
+	    Some(&mut set),
+	    None,
+	    None,
+	    None,  //Some(&mut tv)
+	);
+	// println!("select result: {:?}", r);
+
+	// println!("in set? {}", set.contains(opr.master));
+	let mut eof = false;
+	while !eof {
+	    let mut buf = [0u8;1024];
+	    //let mut buf: Vec<u8> = Vec::with_capacity(64);
+	    let nread = nix::unistd::read(opr.master, &mut buf).unwrap();
+	    if nread == 0 {
+		eof = true;
+	    }
+
+	    println!("received:{}: {}", nread, String::from_utf8_lossy(&buf));
+	    let _ = nix::unistd::sleep(1);
+	}
+
+    }
+
+
+    println!("parent process exit.");
+
+}
 
 
 
@@ -385,7 +459,15 @@ fn main() {
     let g_term = Term::new();
     g_term.reset();
 
-    tty_new();
+    let tty_result = tty_new();
+    if tty_result.is_err() {
+	println!("Tty created failed, abort now!");
+	return;
+    }
+
+    // we need use this master fd to act later operation
+    let pty_master_fd = tty_result.unwrap();
+
     sdl_new();
 
     run();
